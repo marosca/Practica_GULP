@@ -1,17 +1,17 @@
 var gulp = require('gulp');
 var plugins = require('gulp-load-plugins')();
-
+var browserify = require('gulp-task-browserify');
 // Rutas de ARCHIVOS
 const DIST = 'dist';
 const SRC = 'src';
 
 var path = {
-	sass: SRC + '/sass/*.scss',
-    css:  DIST + '/css',
-	js: SRC + '/js/*.js',
-    jsProduccion: DIST + '/js',
-    img: SRC + '/img/**/*',
-    imgProduccion: DIST + '/img'
+  sass: SRC + '/sass/*.scss',
+  css:  DIST + '/css',
+  js: SRC + '/js/*.js',
+  jsProduccion: DIST + '/js',
+  img: SRC + '/img/**/*',
+  imgProduccion: DIST + '/img'
 };
 
 // carpeta y archivo que ha sido modificado en src. Quedan establecidos en la tarea "VIGILAR"
@@ -49,14 +49,22 @@ gulp.task('buildCSS', ['borrarCSS'], function(){
 });
 
 //tarea para minificar código JS y renombrarlo a *.*min-.js
-gulp.task('buildJS', ['borrarJS'], function(){
+/*gulp.task('buildJS', ['borrarJS'], function(){
     return gulp.src(path.js)
     .pipe(plugins.sourcemaps.init())
     .pipe(plugins.uglify())
     .pipe(plugins.rename({suffix: '.min'}))
     .pipe(plugins.sourcemaps.write('./'))//los escribe en la misma ruta
     .pipe(gulp.dest(path.jsProduccion));
-});
+});*/
+
+//tarea para general bunde
+gulp.task('buildJS:prod', browserify({
+  src: SRC + '/js/script.js',
+  dest: path.jsProduccion,
+  uglify: true,
+  sourcemaps: true
+}));
 
 gulp.task('imagemin', function(){
     return gulp.src(path.img) //cogerá cualquier imagen dentro de culaquier subcarpeta que haya dentro de src/img
@@ -111,4 +119,4 @@ gulp.task('vigilar', function(){
 });
 
 //Tarea para utilizar antes de pasar a producción el sitio
-gulp.task('build', ['copiarDependencias', 'buildJS', 'buildCSS', 'imagemin', 'vigilar']);
+gulp.task('build:prod', ['copiarDependencias', 'buildJS:prod', 'buildCSS', 'imagemin', 'vigilar']);

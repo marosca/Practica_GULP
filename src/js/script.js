@@ -1,5 +1,5 @@
 'use strict';
-//var counter = require('counter');
+var counter = require('./counter');
 $(function(){
 	$('#boton').on('mouseover',function(){
 		$('body').css('background-color', 'black');

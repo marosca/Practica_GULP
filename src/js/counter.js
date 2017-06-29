@@ -5,4 +5,4 @@ var counter = function(){
 	return ++cont;
 }
 
-//module.exports = cont;
+module.exports = counter;
