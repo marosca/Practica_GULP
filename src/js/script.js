@@ -1,5 +1,9 @@
 'use strict';
 var counter = require('./counter');
+/**
+ * Eventos javascript
+ * Cada vez que se produce un mouseover se lanza el contador
+ */
 $(function(){
 	$('#boton').on('mouseover',function(){
 		$('body').css('background-color', 'black');
