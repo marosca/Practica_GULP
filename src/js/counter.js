@@ -7,8 +7,8 @@ var cont = 0;
  * @return {Number}       [devulve el número por el que va el contador]
  */
 var counter = function(limit){
-	var limit = (limit == undefined) ? 10 : parseInt(limit, 10);
-	if(cont < limit) ++cont;
+	var hasta = (limit == undefined) ? 10 : parseInt(limit, 10);
+	if(cont < hasta) ++cont;
 	return cont;
 }
 

@@ -7,6 +7,7 @@ var uglify = require('gulp-uglify');
 //var plugins = require('gulp-load-plugins')();
 var browserify = require('gulp-task-browserify');
 var jsdoc = require('gulp-jsdoc3');
+var eslint = require('gulp-eslint');
 
 // Rutas de ARCHIVOS
 const DIST = 'dist';
@@ -133,6 +134,13 @@ gulp.task('doc', function (cb) {
         .pipe(jsdoc(config, cb));
 });
 
+// Linter con gulp-eslint
+gulp.task('lint', function () {
+    return gulp.src([path.js,'!node_modules/**'])
+        .pipe(eslint())
+        .pipe(eslint.format())
+        .pipe(eslint.failOnError());
+});
 
 //Tarea para utilizar antes de pasar a producción el sitio
 gulp.task('build:prod', ['copiarDependencias', 'buildJS:prod', 'buildCSS', 'imagemin', 'vigilar']);
