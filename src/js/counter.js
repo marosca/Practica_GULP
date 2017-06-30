@@ -1,6 +1,8 @@
 'use strict';
 
+var cont = 0; // error para probar eslint!!
 var cont = 0;
+
 /**
  * Función contandor. Devuelve cada vez un número incremtado en una unidad, hasta el límiti establecido. Si no se pasa parámetro contará hasta 10
  * @param  {Number} limit [límite del contado]

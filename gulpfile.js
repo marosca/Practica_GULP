@@ -4,8 +4,11 @@ var rimraf = require('gulp-rimraf');
 var imagemin = require('gulp-imagemin');
 var sourcemaps = require('gulp-sourcemaps');
 var uglify = require('gulp-uglify');
-//var plugins = require('gulp-load-plugins')();
-var browserify = require('gulp-task-browserify');
+var rename = require('gulp-rename');
+var browserify = require('browserify');
+var transform = require('vinyl-transform');
+var through2 = require('through2');
+var htmlreplace = require('gulp-html-replace');
 var jsdoc = require('gulp-jsdoc3');
 var eslint = require('gulp-eslint');
 
@@ -32,57 +35,82 @@ gulp.task('copiarDependencias', function(){
         .pipe(gulp.dest(path.jsProduccion));
 });
 
-//Borra los js de la carpeta de distribucion
-gulp.task('borrarJS', function() {
-    console.log('.... borrando la carpeta dist/js');
-    return gulp.src(path.jsProduccion + '?(.map)')
-    .pipe(rimraf());
-});
 
 //Borra los css de la carpeta de distribucion
-gulp.task('borrarCSS', function() {
-    console.log('.... borrando la carpeta dist/css');
-    return gulp.src(path.css + '?(.map)')
+gulp.task('borrar:css', function() {
+    console.log('.... borrando los archivos de dist/css');
+    return gulp.src(path.css + '/**/*')
     .pipe(rimraf());
 });
 
-
-//compilar sass --> css y minificarlo
-gulp.task('buildCSS', ['borrarCSS'], function(){
+//compilar sass --> css. Desarrollo expanded con sourcemap, Produccion minificado
+gulp.task('build:css:dev', ['borrar:css'], function(){
     return gulp.src(path.sass)
         .pipe(sourcemaps.init())
-        .pipe(sass({ outputStyle:'compressed' }))
+        .pipe(sass({ outputStyle:'expanded' }))
         .pipe(sourcemaps.write('./'))
         .pipe(gulp.dest(path.css));
 });
 
-//tarea para minificar código JS y renombrarlo a *.*min-.js
-/*gulp.task('buildJS', ['borrarJS'], function(){
-    return gulp.src(path.js)
-    .pipe(sourcemaps.init())
-    .pipe(uglify())
-    .pipe(rename({suffix: '.min'}))
-    .pipe(sourcemaps.write('./'))//los escribe en la misma ruta
-    .pipe(gulp.dest(path.jsProduccion));
-});*/
+gulp.task('build:css:prod', ['borrar:css'], function(){
+    return gulp.src(path.sass)
+        .pipe(sass({ outputStyle:'compressed' }))
+        .pipe(rename({suffix: ".min"}))
+        .pipe(gulp.dest(path.css));
+});
 
-//tarea para general bunde
-gulp.task('buildJS:prod', browserify({
-  src: SRC + '/js/script.js',
-  dest: path.jsProduccion,
-  uglify: true,
-  sourcemaps: true,
-  debug: true // true --> desarrollo, false --> produccion
-}));
+// Empaquetado de JS con browserify, produccion app.min.js
+gulp.task('build:js:prod', function () {
+  return gulp.src('./src/js/main.js')
+      .pipe(sourcemaps.init())
+      .pipe(through2.obj(function (file, enc, next){
+              browserify(file.path)
+                  .bundle(function(err, res){
+                      file.contents = res;
+                      next(null, file);
+                  });
+          }))
+      .pipe(uglify())
+      .pipe(rename({basename: "app", suffix: ".min"}))
+      .pipe(sourcemaps.write('./'))//los escribe en la misma ruta
+      .pipe(gulp.dest(path.jsProduccion));
+});
+// Empaquetado de JS con browserify, desarrollo app.js con sourcemap
+gulp.task('build:js:dev', function () {
+  return gulp.src('./src/js/main.js')
+      .pipe(sourcemaps.init())
+      .pipe(through2.obj(function (file, enc, next){
+              browserify(file.path)
+                  .bundle(function(err, res){
+                      file.contents = res;
+                      next(null, file);
+                  });
+          }))
+      .pipe(rename({basename: "app"}))
+      .pipe(sourcemaps.write('./'))//los escribe en la misma ruta
+      .pipe(gulp.dest(path.jsProduccion));
+});
 
+// tarea para optimizar imagenes
 gulp.task('imagemin', function(){
     return gulp.src(path.img) //cogerá cualquier imagen dentro de culaquier subcarpeta que haya dentro de src/img
     .pipe(imagemin())
     .pipe(gulp.dest(path.imgProduccion));//al usar el glob de arriba (lo de los astericos) aquí replicará la misma estructura de carpetas
 });
 
+//cambiar rutas en el html para produccion, el html resultante quedarán en la carpeta raiz /html_dist
+gulp.task('html:prod', function() {
+  gulp.src('index.html')
+    .pipe(htmlreplace({
+        'css': path.css + '/estilos.min.css',
+        'js': path.jsProduccion + '/app.min.js'
+    }))
+    .pipe(gulp.dest('./html_dist'));
+});
+
+
 //Borrar archivos de la carpeta de distribución que ya no sean necesarios porque sus orginales han sido borrados o renombrados en la carpeta src
-gulp.task('borrar', function() {
+gulp.task('borrar:eliminados', function() {
     console.log('....BORRANDO ' + folder + '/' + file + ' en DIST');
     console.log(DIST + '/' + folder + '/' + file + '?(.map)');
     return gulp.src(DIST + '/' + folder + '/' + file + '?(.map)')
@@ -91,8 +119,8 @@ gulp.task('borrar', function() {
 
 // Vigilar archivos scss / js y la carpeta src/img
 gulp.task('vigilar', function(){
-    var sassWatcher = gulp.watch(path.sass, ['buildCSS']);
-    var jsWatcher = gulp.watch(path.js, ['buildJS:prod']);
+    var sassWatcher = gulp.watch(path.sass, ['build:css:dev']);
+    var jsWatcher = gulp.watch(path.js, ['build:js:dev']);
     var imgWatcher = gulp.watch(path.img, ['imagemin']);
 
     //Función para loguear cambios de archivos y actualizar las carpetas de distribucion borrando archivos que ya no sean utilizados
@@ -111,7 +139,7 @@ gulp.task('vigilar', function(){
                 folder = 'css';
                 break;
             case 'js':
-                file = file + '.min.js';
+                file = file + '.js';
                 break;
             case 'img':
                 file = file + '.' + ext;
@@ -119,11 +147,14 @@ gulp.task('vigilar', function(){
 
         // si se ha borrado un archivo (cuando se renombra también se lanza) entonces autoejecutamos la tarea borrar
         if( event.type == 'deleted'){
-            gulp.start(['borrar']);
+            gulp.start(['borrar:eliminados']);
         }
     }
     sassWatcher.on('change', actualizarDIST);
-    jsWatcher.on('change', actualizarDIST);
+    jsWatcher.on('change', function(){
+            actualizarDIST();
+            gulp.start('lint');
+          });
     imgWatcher.on('change', actualizarDIST);
 });
 
@@ -143,4 +174,7 @@ gulp.task('lint', function () {
 });
 
 //Tarea para utilizar antes de pasar a producción el sitio
-gulp.task('build:prod', ['copiarDependencias', 'buildJS:prod', 'buildCSS', 'imagemin', 'vigilar']);
+gulp.task('build:prod', ['copiarDependencias', 'build:js:prod', 'build:css:prod', 'imagemin', 'html:prod']);
+
+//Tarea para utilizar antes de pasar a producción el sitio
+gulp.task('build:dev', ['copiarDependencias', 'build:js:dev', 'build:css:dev', 'imagemin', 'vigilar', 'lint']);
